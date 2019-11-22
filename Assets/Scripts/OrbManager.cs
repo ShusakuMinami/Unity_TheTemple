@@ -39,35 +39,6 @@ public class OrbManager : MonoBehaviour
     }
     
     
-    // オーブ取得
-    public void TouchOrb()
-    {
-        if(Input.GetMouseButton(0) == false){
-            return;
-        }
-        
-        RectTransform rect = GetComponent<RectTransform>();
-        
-        // オーブの軌跡設定
-        Vector3[] path = {
-            // 中間点
-            new Vector3(rect.localPosition.x * 1.5f, 300f, 0f),
-            // 終点
-            new Vector3(0f, 150f, 0f)
-        };
-        
-        // DOTweenを使ったアニメ作成
-        rect.DOLocalPath(path, 0.5f, PathType.CatmullRom)
-            .SetEase(Ease.OutQuad)
-            .OnComplete(AddOrbPoint);
-        // 同時にサイズも変更
-        rect.DOScale(
-            new Vector3(0.5f, 0.5f, 0f),
-            0.5f
-        );
-    }
-    
-    
     // オーブアニメ終了後にポイント加算処理をする
     void AddOrbPoint()
     {
@@ -103,5 +74,30 @@ public class OrbManager : MonoBehaviour
                 GetComponent<Image>().sprite = orbPicture[2];
                 break;
         }
+    }
+    
+    
+    // オーブが飛ぶ
+    public void FlyOrb()
+    {
+        RectTransform rect = GetComponent<RectTransform>();
+        
+        // オーブの軌跡設定
+        Vector3[] path = {
+            // 中間点
+            new Vector3(rect.localPosition.x * 4.0f, 300f, 0f),
+            // 終点
+            new Vector3(0f, 250f, 0f)
+        };
+        
+        // DOTweenを使ったアニメ作成
+        rect.DOLocalPath(path, 0.5f, PathType.CatmullRom)
+            .SetEase(Ease.OutQuad)
+            .OnComplete(AddOrbPoint);
+        // 同時にサイズも変更
+        rect.DOScale(
+            new Vector3(0.5f, 0.5f, 0f),
+            0.5f
+        );
     }
 }

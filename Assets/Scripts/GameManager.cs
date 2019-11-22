@@ -46,8 +46,9 @@ public class GameManager : MonoBehaviour
     private DateTime lastDateTime;
     private int templeLevel = 0;
     private int[] nextScoreTable = new int[]{10, 100, 1000};
-    // オーディオソース
+    // オーディオソース、まとめて生成するオーブの数
     private AudioSource audioSource;
+    private int numOfOrb;
     
     
     // Start is called before the first frame update
@@ -59,23 +60,7 @@ public class GameManager : MonoBehaviour
         // 初期設定
         score = PlayerPrefs.GetInt(KEY_SCORE, 0);
         templeLevel = PlayerPrefs.GetInt(KEY_LEVEL, 0);
-        currentOrb = PlayerPrefs.GetInt(KEY_ORB, 10);
-        // 初期オーブ生成
-        for(int i = 0; i < currentOrb; i++){
-            CreateOrb();
-        }
-        // 時間の復元
-        string time = PlayerPrefs.GetString(KEY_TIME, "");
-        if(time == ""){
-            // 時間がセーブされていない場合は現在時刻を使用
-            lastDateTime = DateTime.UtcNow;
-        }
-        else{
-            long temp = Convert.ToInt64(time);
-            lastDateTime = DateTime.FromBinary(temp);
-        }
-        
-        lastDateTime = DateTime.UtcNow;
+
         nextScore = nextScoreTable[templeLevel];
         imageTemple.GetComponent<TempleManager>()   .SetTemplePicture(templeLevel);
         imageTemple.GetComponent<TempleManager>()   .SetTempleScale(score, nextScore);
@@ -86,13 +71,40 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // RESPAWN_TIMEごとにオーブを新たに生成
-        if(currentOrb < MAX_ORB){
-            TimeSpan timeSpan = DateTime.UtcNow - lastDateTime;
+        // まとめて生成するオーブがあれば生成
+        while(numOfOrb > 0){
+            Invoke("CreateNewOrb", 0.1f * numOfOrb);
+            numOfOrb--;
+        }
+    }
+    
+    
+    // バックグラウンドへの移行時と復帰次（アプリ起動時も含む）に呼び出される
+    void OnApplicationPause(bool pauseStatus)
+    {
+        if(pauseStatus){
+            // アプリがバックグラウンドへ移行
+        }
+        else{
+            // バックグラウンドから復帰
+            // 時間の復元
+            string time = PlayerPrefs.GetString(KEY_TIME, "");
+            if(time == ""){
+                lastDateTime = DateTime.UtcNow;
+            }
+            else{
+                long temp = Convert.ToInt64(time);
+                lastDateTime = DateTime.FromBinary(temp);
+            }
             
+            numOfOrb = 0;
+            // 時間によるオーブの自動生成
+            TimeSpan timeSpan = DateTime.UtcNow - lastDateTime;
             if(timeSpan >= TimeSpan.FromSeconds(RESPAWN_TIME)){
-                while(timeSpan >= TimeSpan.FromSeconds(RESPAWN_TIME)){
-                    CreateNewOrb();
+                while(timeSpan > TimeSpan.FromSeconds(RESPAWN_TIME)){
+                    if(numOfOrb < MAX_ORB){
+                        numOfOrb++;
+                    }
                     timeSpan -= TimeSpan.FromSeconds(RESPAWN_TIME);
                 }
             }
@@ -125,8 +137,8 @@ public class GameManager : MonoBehaviour
         orb.transform.SetParent(canvasGame.transform, false);
         // オーブの位置を設定
         orb.transform.localPosition = new Vector3(
-            UnityEngine.Random.Range(-300.0f, 300.0f),
-            UnityEngine.Random.Range(-140.0f, -500.0f),
+            UnityEngine.Random.Range(-100.0f, 100.0f),
+            UnityEngine.Random.Range(-300.0f, -450.0f),
             0f);
             
         // オーブの種類を設定
@@ -142,26 +154,29 @@ public class GameManager : MonoBehaviour
                 orb.GetComponent<OrbManager>().SetKind(OrbManager   .ORB_KIND.PURPLE);
                 break;
         }
+        
+        orb.GetComponent<OrbManager>().FlyOrb();
+        
+        audioSource.PlayOneShot(getScoreSE);
+        
+        // 木魚アニメ再生
+        AnimatorStateInfo stateInfo =
+            imageMokugyo.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0);
+        if(stateInfo.fullPathHash ==
+            Animator.StringToHash("Base Layer.get@ImageMokugyo")){
+            // すでに再生中なら最初から
+            imageMokugyo.GetComponent<Animator>().Play(stateInfo.fullPathHash, 0, 0.0f);
+        }
+        else{
+            imageMokugyo.GetComponent<Animator>().SetTrigger("isGetScore");
+        }
+        
     }
     
     
     // オーブ入手
     public void GetOrb(int getScore)
     {
-        audioSource.PlayOneShot(getScoreSE);
-        
-        // 木魚アニメ再生
-        AnimatorStateInfo stateInfo = imageMokugyo.GetComponent<Animator>().GetCurrentAnimatorStateInfo(0);
-        if(stateInfo.fullPathHash == Animator.StringToHash("Base Layer.get@ImageMokugyo")){
-            // すでに再生中なら先頭から再生を再開
-            imageMokugyo.GetComponent<Animator>()
-                .Play(stateInfo.fullPathHash, 0, 0.0f);
-        }
-        else{
-            imageMokugyo.GetComponent<Animator>()
-                .SetTrigger("isGetScore");
-        }
-        
         if(score < nextScore){
             score += getScore;
             
